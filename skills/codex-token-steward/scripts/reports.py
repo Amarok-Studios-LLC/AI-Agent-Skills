@@ -165,6 +165,57 @@ def estimate_cost(store, rows):
             'note': 'Published-rate estimate only, not billed credits, subscription depletion, or a counterfactual saving.'}
 
 
+def usage_boundaries(store, session, turn_row, own_calls):
+    """Observed start/end readings, with explicit timing and reset uncertainty."""
+    if not turn_row:
+        return {'tokens':None, 'allowance':[], 'note':'Turn boundaries are unavailable.'}
+    start = turn_row['start']
+    end = max(turn_row['end'] or start, max((r['timestamp'] for r in own_calls), default=start))
+    prior = [dict(r) for r in store.db.execute('SELECT * FROM calls WHERE session=? AND timestamp<? ORDER BY timestamp', (session,start))]
+    token_start = totals(prior)
+    token_end = totals(prior + own_calls)
+    tokens = {'scope':'Recorded cumulative main-agent tokens in this task; not a remaining token balance.',
+              'start':token_start,'end':token_end,'change':totals(own_calls),
+              'start_at':start,'end_recorded_at':end,
+              'end_final':bool(turn_row['end'])}
+    readings = [dict(r) for r in store.db.execute('''SELECT timestamp,bucket,window,reset,used FROM limits
+                 WHERE session=? AND timestamp<=? ORDER BY timestamp''', (session,end))]
+    grouped = collections.defaultdict(list)
+    for r in readings:
+        grouped[(r['bucket'],r['window'])].append(r)
+    allowance = []
+    for (bucket,window), samples in grouped.items():
+        before = [r for r in samples if r['timestamp'] <= start]
+        during = [r for r in samples if start < r['timestamp'] <= end]
+        opening = before[-1] if before else (during[0] if during else None)
+        closing = during[-1] if during else None
+        if not opening and not closing:
+            continue
+        sequence = ([opening] if opening else []) + during
+        changed = any(r['reset'] != opening['reset'] for r in sequence) if opening else False
+        decreased = any(b['used'] < a['used'] for a,b in zip(sequence,sequence[1:]))
+        comparable = opening is not None and closing is not None and not changed and not decreased
+        def snapshot(r):
+            if r is None:
+                return None
+            age = None
+            if r['timestamp'] <= start:
+                age = max(0,(datetime.fromisoformat(start.replace('Z','+00:00'))-
+                              datetime.fromisoformat(r['timestamp'].replace('Z','+00:00'))).total_seconds())
+            return {'used_percent':r['used'],'remaining_percent':max(0,100-r['used']),
+                    'observed_at':r['timestamp'],'reset_unix':r['reset'],'age_at_turn_start_seconds':age}
+        allowance.append({'bucket':bucket,'window_minutes':window,
+                          'start':snapshot(opening),'end':snapshot(closing),
+                          'start_basis':'last_observed_at_or_before_turn' if before else 'first_observed_during_turn_not_actual_start',
+                          'end_basis':'last_observed_during_turn' if closing else 'unavailable',
+                          'window_changed':changed,'usage_decreased':decreased,
+                          'change_percentage_points':round(closing['used']-opening['used'],6) if comparable else None,
+                          'note':'Account-wide rounded readings observed in this session. Not a task bill. Unchanged percent does not mean zero consumption.'})
+    return {'tokens':tokens,'allowance':allowance,
+            'unavailable_standard_windows_minutes':[w for w in (300,10080) if not any(a['window_minutes']==w for a in allowance)],
+            'note':'Observed boundaries, not guaranteed exact live readings. Missing readings remain unavailable; resets are not negative consumption.'}
+
+
 def turn_report(store, session, turn=None, include_calls=True):
     if not turn:
         row = store.db.execute('SELECT id FROM turns WHERE session=? ORDER BY start DESC LIMIT 1', (session,)).fetchone()
@@ -193,6 +244,7 @@ def turn_report(store, session, turn=None, include_calls=True):
               'recorded_through': max((r['timestamp'] for r in rows), default=None),
               'timing_note': 'Snapshot of recorded usage. Final response and late child events can arrive later; reconcile on the next scan.',
               'usage': totals(rows), 'linked_subagent_usage': totals(child),
+              'boundaries':usage_boundaries(store,session,row,[r for r in rows if r['session']==session and r['turn']==turn]),
               'models': dict(collections.Counter(r['model'] for r in rows)),
               'efforts': dict(collections.Counter(r['effort'] for r in rows)),
               'tools': {'calls': len(tools), 'by_name': dict(collections.Counter(t['name'] for t in tools)),
@@ -217,9 +269,30 @@ def compact(report):
     u = report['usage']
     if not u['model_calls']:
         return 'Usage: unavailable for this turn; do not infer zero consumption.'
-    return ('Usage snapshot: {model_calls:,} calls; {input_tokens:,} input '
+    text = ('Usage snapshot: {model_calls:,} calls; {input_tokens:,} input '
             '({cached_input_tokens:,} cached); {output_tokens:,} output '
             '({reasoning_output_tokens:,} reasoning included).').format(**u)
+    boundary = report.get('boundaries',{})
+    t = boundary.get('tokens')
+    if t:
+        text += ' Task token ledger (main): {:,} -> {:,} (+{:,}).'.format(t['start']['total_tokens'],t['end']['total_tokens'],t['change']['total_tokens'])
+    allowances = boundary.get('allowance',[])
+    if not allowances:
+        text += ' Allowance start/end: unavailable.'
+    for a in allowances:
+        label = 'weekly' if a['window_minutes']==10080 else ('5-hour' if a['window_minutes']==300 else str(a['window_minutes'])+'-minute')
+        def percent(r):
+            return '%g%% used / %g%% left' % (r['used_percent'],r['remaining_percent']) if r else 'unavailable'
+        text += ' %s: %s -> %s.' % (label,percent(a['start']),percent(a['end']))
+        if a['window_changed'] or a['usage_decreased']:
+            text += ' Reset/adjustment detected; consumption delta unavailable.'
+        elif a['change_percentage_points'] is not None:
+            text += ' Observed change: +%g percentage points.' % a['change_percentage_points']
+        if a['start_basis']=='first_observed_during_turn_not_actual_start':
+            text += ' Start is the first in-turn observation, not a pre-turn reading.'
+        elif a['start']:
+            text += ' Start reading age: %gs.' % a['start']['age_at_turn_start_seconds']
+    return text
 
 
 def save_report(store, report):

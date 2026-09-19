@@ -13,7 +13,7 @@ from deployment import manifest, plan
 from integration import hook, install_integration, session_paths
 from reports import DEFAULT_POLICY, audit, compact, policy, registry, save_report, turn_report
 
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 
 
 def emit(value):

@@ -78,6 +78,7 @@ class Store:
         CREATE INDEX IF NOT EXISTS tools_turn ON tools(session,turn);
         CREATE TABLE IF NOT EXISTS limits(id TEXT PRIMARY KEY,timestamp TEXT,session TEXT,
           bucket TEXT,window INTEGER,reset INTEGER,used REAL);
+        CREATE INDEX IF NOT EXISTS limits_session_time ON limits(session,timestamp);
         CREATE TABLE IF NOT EXISTS notes(id TEXT PRIMARY KEY,kind TEXT,project TEXT,
           timestamp TEXT,payload TEXT);
         CREATE TABLE IF NOT EXISTS hook_runs(id INTEGER PRIMARY KEY,event TEXT,

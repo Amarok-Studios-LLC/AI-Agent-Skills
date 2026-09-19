@@ -14,6 +14,7 @@ It provides:
 
 - Incremental usage collection from local Codex session records, with fork/duplicate handling and coverage diagnostics.
 - Per-turn JSON/Markdown reports, individual recorded model calls, tool activity, cached input and reasoning subsets, and explicitly linked subagent usage.
+- Starting/ending task token ledgers and allowance readings, with used/remaining percentages, timestamps, baseline age, and reset-aware changes.
 - Compact per-response snapshots, optional lifecycle reporting, and short feedback for the next message.
 - Personalization through project/model baselines, project facts, reversible interventions and explicitly accepted outcome comparisons.
 - Guidance for context management, code changes, debugging, tool use, authorized multi-model delegation, deployments, backups and MySQL.
@@ -74,6 +75,8 @@ The collector stores derived metadata and reports in `$CODEX_STEWARD_HOME` or `$
 ## Report timing and honest limits
 
 The footer generated before an assistant's final response **cannot include that not-yet-generated response**. It is labeled a snapshot. Stop hooks save post-response recorded usage; the next message reconciles the previous completed turn when records have flushed. The skill never forces another model turn to finish its own accounting.
+
+Start/end allowance values use readings already present in the session logs. A prior reading carries its age; if only an in-turn reading exists, it is explicitly labeled as the first observation rather than an exact starting balance. Missing endpoints remain unavailable. Resets or decreasing readings suppress a misleading consumption delta. Unchanged rounded percentages do not mean zero consumption. The main-agent token ledger is cumulative recorded usage in that task, not a remaining token allocation; linked child consumption is reported separately.
 
 Local logs are not an authoritative bill or complete cross-device/cloud record. Token counts, allowance percentages, API dollars and purchased credits are separate. Published rate estimates are optional and never substitute for billed amounts. Prices are deliberately not bundled: import current, sourced rates for the exact service tier and billing context. Unknown tiers/models/rates remain unpriced.
 

@@ -21,6 +21,10 @@ A message report represents an observed Codex turn ID, not each visible assistan
 
 The current pre-final report cannot include the text the model has not generated yet. Stop runs after response generation but transcripts may flush later. Reports always carry a recorded-through time, status, and coverage. Next-prompt collection reconciles the preceding completed turn. Late child events may require a subsequent report refresh. The saved JSON is authoritative for that snapshot; a previously displayed footer cannot be retroactively corrected by this skill.
 
+## Starting and ending usage
+
+Each report includes `boundaries`: the cumulative recorded main-agent token ledger before/after the turn, and observed allowance snapshots with used/remaining percentages. Allowance starts use the most recent same-session reading at or before the turn, with its timestamp and age. If none exists, the first in-turn reading is explicitly marked approximate. Ending allowance uses the last reading observed during the turn; no reading means unavailable, not carry-forward. Only unchanged windows with nondecreasing usage receive percentage-point deltas. A reset/adjustment makes consumption delta unavailable. Other tasks can consume the same account allowance; these are not per-task bills. Standard 5-hour/weekly windows absent from available data are explicitly listed as unavailable. The collector does not call a live account API or add model turns to acquire these readings.
+
 ## Models and prices
 
 Record exact observed model, effort and service tier; absent values remain unknown. No token-to-allowance conversion is assumed. The bundled registry has no prices. Imported rates need official source, checked date, effective interval, exact model/service and units. Rates older than 14 days are marked stale and not applied. Pricing is an estimate, not invoiced credit use. Never apply public API USD pricing as subscription costs. See models.md.
