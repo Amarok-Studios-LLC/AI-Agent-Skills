@@ -2,6 +2,7 @@ import json
 import os
 import pathlib
 import subprocess
+import shutil
 import sys
 import tempfile
 import unittest
@@ -41,6 +42,19 @@ class RegressionTests(AccountingTests):
         p=self.write('p.jsonl',[meta(),event('turn_context',{'turn_id':'t1','model':'test-model'}),token()])
         self.store.scan([p])
         self.assertIn('test-model/unknown',self.report()['cost']['unpriced_model_service_pairs'])
+
+    def test_partial_billing_units_not_reported_complete(self):
+        checked=datetime.now(timezone.utc).date().isoformat()
+        base={'service_tier':'default','input':1,'cached':0.1,'output':2,'effective_from':'2020-01-01',
+              'checked_at':checked,'source':'https://learn.chatgpt.com/docs/pricing'}
+        rates=[dict(base,model='a',unit='USD'),dict(base,model='b',unit='credits')]
+        (self.root/'data/models.json').write_text(json.dumps({'schema_version':1,'models':[],'rates':rates}))
+        p=self.write('p.jsonl',[meta(),context(model='a'),token(),context(second=3,model='b'),
+                               token(usage(200,160,40,20),usage(),4)])
+        self.store.scan([p])
+        r=self.report()['cost']
+        self.assertFalse(r['complete'])
+        self.assertEqual(r['complete_by_unit'],{'USD':False,'credits':False})
 
     def test_rate_limit_updates_not_new_model_calls(self):
         a=token();b=token(second=3)
@@ -92,3 +106,12 @@ class InstallTests(unittest.TestCase):
                              shell=True,text=True,capture_output=True)
             self.assertEqual(p.returncode,0,p.stderr)
             self.assertIn('systemMessage',json.loads(p.stdout))
+            if os.name == 'nt':
+                shell=shutil.which('pwsh') or shutil.which('powershell')
+                if shell:
+                    text=(root/'AGENTS.md').read_text()
+                    command=text.split('Windows PowerShell command:\n',1)[1].splitlines()[0]
+                    env=dict(os.environ,CODEX_THREAD_ID='test')
+                    result=subprocess.run([shell,'-NoProfile','-Command',command],env=env,text=True,capture_output=True)
+                    self.assertEqual(result.returncode,0,result.stderr)
+                    self.assertIn('Usage:',result.stdout)

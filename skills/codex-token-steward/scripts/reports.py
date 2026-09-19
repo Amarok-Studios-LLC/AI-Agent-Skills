@@ -137,6 +137,7 @@ def registry(store):
 def estimate_cost(store, rows):
     catalog = registry(store)
     estimates = collections.Counter()
+    priced_counts = collections.Counter()
     missing = set()
     stale = set()
     for r in rows:
@@ -155,9 +156,12 @@ def estimate_cost(store, rows):
                 continue
             amount = ((r['input'] - r['cached']) * m['input'] + r['cached'] * m['cached'] + r['output'] * m['output']) / 1e6
             estimates[m['unit']] += amount
+            priced_counts[m['unit']] += 1
     return {'estimated_by_unit': {k: round(v, 6) for k,v in estimates.items()},
+            'priced_calls_by_unit':dict(priced_counts),
+            'complete_by_unit':{k:v==len(rows) for k,v in priced_counts.items()},
             'unpriced_model_service_pairs': sorted(missing), 'stale_rate_models': sorted(stale),
-            'complete': not missing and not stale and bool(rows),
+            'complete': not missing and not stale and bool(rows) and all(v==len(rows) for v in priced_counts.values()),
             'note': 'Published-rate estimate only, not billed credits, subscription depletion, or a counterfactual saving.'}
 
 

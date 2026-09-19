@@ -143,6 +143,8 @@ def install_integration(codex_home, script, store, remove=False):
     if not remove:
         cmd = command_for(script, ['--codex-home',str(codex_home),'--data-dir',str(store.directory),
                                   'report','--current','--refresh','--compact','--respect-policy'])
+        if os.name == 'nt':
+            cmd = '& ' + cmd  # PowerShell needs a call operator for a quoted executable path.
         block = ('\n' + BEGIN + '\n'
                  'Use the globally installed codex-token-steward skill for usage reporting and efficient execution. '
                  'Preserve the user\'s selected model, required outcome, and necessary verification. '
@@ -151,7 +153,7 @@ def install_integration(codex_home, script, store, remove=False):
                  'reporting is disabled, omit the footer. The snapshot excludes the forthcoming '
                  'final response; Stop hooks/next collection reconcile it. If usage is unavailable, say so; never invent totals. '
                  'For optimization decisions read the skill when needed; do not load all references or audit all history each turn.\n\n'
-                 + cmd + '\n\n'
+                 + ('Windows PowerShell command:\n' if os.name == 'nt' else '') + cmd + '\n\n'
                  'Review observed findings and improve execution within existing authorization. '
                  'Do not reduce quality, skip necessary checks, switch models, spawn agents, or alter configuration '
                  'merely to save tokens. Do not start extra turns solely for reporting.\n' + END + '\n')
