@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Token Steward"
+  short_description: "Track usage and improve efficiency without cutting quality"
+  default_prompt: "Use $codex-token-steward to review my usage and optimize this task without reducing quality."

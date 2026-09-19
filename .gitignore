@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.sqlite*
+*.jsonl
+.env
+.env.*
+token-steward/
+reports/
+work/
+outputs/
+.DS_Store

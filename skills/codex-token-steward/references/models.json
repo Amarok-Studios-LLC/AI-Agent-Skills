@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "models": [
+    {"id": "gpt-6-astra", "role_hint": "complex reasoning and lead work", "checked_at": "2026-09-19", "source": "https://learn.chatgpt.com/docs/models", "benchmark_validated": false},
+    {"id": "gpt-5.6-sol", "role_hint": "complex work when appropriate", "checked_at": "2026-09-19", "source": "https://learn.chatgpt.com/docs/models", "benchmark_validated": false},
+    {"id": "gpt-5.6-terra", "role_hint": "bounded everyday work", "checked_at": "2026-09-19", "source": "https://learn.chatgpt.com/docs/models", "benchmark_validated": false},
+    {"id": "gpt-5.6-luna", "role_hint": "clear repeatable supporting work", "checked_at": "2026-09-19", "source": "https://learn.chatgpt.com/docs/models", "benchmark_validated": false}
+  ],
+  "rates": [],
+  "note": "Prices deliberately unset. Import verified dated rates for the exact billing unit and service tier; do not infer subscription usage from public API prices. Unknown models are still tracked."
+}
