@@ -90,7 +90,7 @@ def hook(store, codex_home, payload, record=True):
                                      (store.project(payload['cwd']),)).fetchall()
             if notes:
                 instructions += 'Project notes exist; consult `notes --project <cwd>` only if relevant. Validate their evidence/valid_when before reuse. '
-        instructions += 'Append a compact measured pre-final usage snapshot when requested; final-answer usage is reconciled afterward.'
+        instructions += 'Reuse these prior readings when appropriate; batch requested reports with necessary tools. No extra round trip for routine accounting.'
         output = {'hookSpecificOutput': {'hookEventName':event, 'additionalContext':instructions[:2600]}}
     else:
         report = turn_report(store, sid, payload.get('turn_id'))
@@ -172,21 +172,22 @@ def install_integration(codex_home, script, store, remove=False):
                 'report','--current','--refresh','--compact','--respect-policy']
         cmd = powershell_invocation(script,args) if os.name == 'nt' else command_for(script,args)
         block = ('\n' + BEGIN + '\n'
-                 'Use the globally installed codex-token-steward skill for usage reporting and efficient execution. '
-                 'Preserve the user\'s selected model, required outcome, and necessary verification. '
-                 'Before each final response, run the following command once (no retry loop) and append its compact '
-                 'usage snapshot plus one relevant optimization observation when reporting is enabled. If the command says '
-                 'reporting is disabled, omit the footer. The snapshot excludes the forthcoming '
-                 'final response; Stop hooks/next collection reconcile it. If usage is unavailable, say so; never invent totals. '
-                 'For optimization decisions read the skill when needed; do not load all references or audit all history each turn.\n\n'
+                 "Use codex-token-steward for efficient execution and enabled reporting. Preserve the selected model, "
+                 "required outcome and necessary checks. Reuse hook/tool readings; batch at most one report after "
+                 "work in the last necessary tool call. Do not add a model round trip solely for routine reporting. "
+                 "Simple conversation needs no accounting tools; label previous readings as prior and current usage "
+                 "unavailable. Explicit requests for fresh usage warrant a fresh check. Honor disabled reporting. "
+                 "Keep footers brief: used/remaining percentages, available start/end change, weekly reset and "
+                 "pace versus suggested pace. Give a conditional run-out estimate only when the report supports it. "
+                 "Do not invent missing readings or savings; snapshots exclude the final response and late records. "
+                 "Add optimization observations only when specific and useful. Load skill references only as needed.\n\n"
                  + ('Windows PowerShell command:\n' if os.name == 'nt' else '') + cmd + '\n\n'
-                 'Review observed findings and improve execution within existing authorization. '
-                 'Do not reduce quality, skip necessary checks, switch models, spawn agents, or alter configuration '
-                 'merely to save tokens. Do not start extra turns solely for reporting. '
-                 'For substantive work, if no Token Steward hook guidance arrived this turn, run the same script with '
-                 '`prepare --current` instead of the report arguments, once alongside the first necessary tool call. '
-                 'This supplies prior findings without relying on hook support. Simple conversation needs no preparation '
-                 'or repository exploration. Do not claim zero-token AI replies or silently route messages to another product.\n' + END + '\n')
+                 "Reuse valid evidence and checks; repeat after changes, expiry, failure or explicit request. "
+                 "Batch independent reads and return focused excerpts. Change failed approaches before retrying. "
+                 "For substantive work without hook guidance or available prior findings, batch `prepare --current` "
+                 "with the first necessary tool; no standalone preparation call. Preserve quality and authorization; "
+                 "do not switch models or spawn agents merely to save tokens. Do not claim zero-token AI replies "
+                 "or silently route messages elsewhere.\n" + END + '\n')
         old = old.rstrip() + '\n' + block
     agents_path.write_text(old, encoding='utf-8')
     launcher = None

@@ -16,6 +16,7 @@ It provides:
 - Per-turn JSON/Markdown reports, individual recorded model calls, tool activity, cached input and reasoning subsets, and explicitly linked subagent usage.
 - Starting/ending task token ledgers and allowance readings, with used/remaining percentages, timestamps, baseline age, and reset-aware changes.
 - Compact per-response snapshots, optional lifecycle reporting, and short feedback for the next message.
+- Weekly reset timing, suggested daily allowance pace, recent observed pace and conditional run-out estimates with explicit stale/sparse-data limits.
 - Cross-shell Windows hook launchers, recorded handler failures, and real host-dispatch verification using a local canned response with no model inference.
 - A `prepare` fallback for hosts that have not reloaded hooks, plus a direct local `status` command/Windows shortcut that needs no AI conversation.
 - Personalization through project/model baselines, project facts, reversible interventions and explicitly accepted outcome comparisons.

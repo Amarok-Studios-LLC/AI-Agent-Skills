@@ -4,6 +4,7 @@ import json
 import statistics
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from pace import weekly_pace, compact_pace
 
 from accounting import atomic_json, now, safe_id
 
@@ -244,6 +245,7 @@ def turn_report(store, session, turn=None, include_calls=True):
               'recorded_through': max((r['timestamp'] for r in rows), default=None),
               'timing_note': 'Snapshot of recorded usage. Final response and late child events can arrive later; reconcile on the next scan.',
               'usage': totals(rows), 'linked_subagent_usage': totals(child),
+              'weekly_pace': weekly_pace(store, session),
               'boundaries':usage_boundaries(store,session,row,[r for r in rows if r['session']==session and r['turn']==turn]),
               'models': dict(collections.Counter(r['model'] for r in rows)),
               'efforts': dict(collections.Counter(r['effort'] for r in rows)),
@@ -268,7 +270,7 @@ def turn_report(store, session, turn=None, include_calls=True):
 def compact(report):
     u = report['usage']
     if not u['model_calls']:
-        return 'Usage: unavailable for this turn; do not infer zero consumption.'
+        return 'Usage: unavailable for this turn; do not infer zero consumption. ' + compact_pace(report.get('weekly_pace', []))
     text = ('Usage snapshot: {model_calls:,} calls; {input_tokens:,} input '
             '({cached_input_tokens:,} cached); {output_tokens:,} output '
             '({reasoning_output_tokens:,} reasoning included).').format(**u)
@@ -292,7 +294,7 @@ def compact(report):
             text += ' Start is the first in-turn observation, not a pre-turn reading.'
         elif a['start']:
             text += ' Start reading age: %gs.' % a['start']['age_at_turn_start_seconds']
-    return text
+    return text + ' ' + compact_pace(report.get('weekly_pace', []))
 
 
 def save_report(store, report):

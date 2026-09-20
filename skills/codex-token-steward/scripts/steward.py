@@ -12,9 +12,10 @@ from accounting import Store, atomic_json, home, now, safe_id
 from deployment import manifest, plan
 from integration import hook, install_integration, session_paths
 from hostcheck import health, verify
+from pace import weekly_pace
 from reports import DEFAULT_POLICY, audit, compact, policy, registry, save_report, turn_report
 
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 
 
 def emit(value):
@@ -281,6 +282,7 @@ def main(argv=None):
             summary = audit(store,args.days)
             emit({'generated_at':now(),'period_days':args.days,
                   'usage':summary['usage'],'allowance_windows':summary['allowance_windows'],
+                  'weekly_pace':weekly_pace(store),
                   'top_models':summary['groups']['model'][:5],
                   'health':health(store,args.codex_home), 'coverage':summary['coverage'],
                   'note':'Local historical usage, not live billing. This direct command makes no model calls.'})

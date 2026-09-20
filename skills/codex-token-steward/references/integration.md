@@ -12,7 +12,7 @@ This merges three user-level command hooks (`UserPromptSubmit`, `Stop`, `Subagen
 
 ## How reporting works
 
-- Global instructions request one compact report near the end of each response, with measured usage so far and one relevant observation. This is a behavioral fallback, not hard enforcement.
+- Global instructions reuse hook/tool readings or batch one report with necessary work. Simple conversation uses explicitly labeled prior readings without accounting calls. Explicit requests for fresh usage still warrant collection. Compact footers retain allowance percentages, reset timing, and supported pace estimates; advice is included only when useful. This is a behavioral fallback, not hard enforcement.
 - UserPromptSubmit collects recent available records, reconciles the preceding completed turn and supplies short, deterministic advice. It never includes transcript text.
 - Stop saves a JSON/Markdown per-turn report and surfaces a `systemMessage` with the snapshot/report path. Host presentation varies; this does not rewrite the final assistant message.
 - SubagentStop updates the parent's root-linked usage where available.

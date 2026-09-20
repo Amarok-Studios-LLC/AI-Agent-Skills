@@ -38,3 +38,16 @@ Reports expose scan bytes/time, hook runtime and identified steward tool invocat
 ## Heuristics
 
 Repeated keyed tool signatures, large context, explicit error markers, large outputs, computer-use volume, coordination calls and project/model baseline deviations flag investigation opportunities. They cannot establish wasted tokens, causal savings, correctness or acceptance. Dynamic orchestration inside one wrapper call is not a complete record of all nested operations. Review relevant evidence and project state before intervening.
+
+
+## Weekly reset and pacing
+
+`report` and `status` include `weekly_pace` from recorded seven-day allowance readings. No extra account/network/model call is made. UTC reset timestamps are retained alongside machine-local time with numeric UTC offset. Reading age is exposed. No reading means no inferred reset.
+
+- Suggested daily pace: remaining percentage points divided by days remaining at report time, assuming no unrecorded usage since the reading. A full week's even pace is about 14.29 percentage points/day.
+- Recent pace: observed percentage-point increase divided by elapsed days within the trailing 24 hours. Only one session, bucket and contiguous reset cycle are compared; sessions are not merged because account identities are not recorded.
+- Week average: used percentage divided by elapsed days from reset minus seven days. This assumes a zero start and is descriptive, not a forecasting baseline.
+- Forecast: extrapolates the recent rate only after at least six hours and two percentage points of increase. It is conditional on constant future pace, not a prediction of actual working hours. Estimated exhaustion after reset means the allowance should last through reset at that pace, not an actual exhaustion date in the next cycle.
+- No forecast is provided for stale readings (>6 hours), passed resets, decreased usage, insufficient observations, or a projection already elapsed without new evidence. Unchanged rounded percentages are not zero use. A 100% reading is reported as exhausted.
+
+Historical reports expose generation time and reading age. Forecasts are account-allowance guidance, never a per-task bill, guaranteed savings, or hard spending control.
