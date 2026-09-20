@@ -45,6 +45,15 @@ class IntegrationHealthTests(unittest.TestCase):
         (self.codex/'hooks.json').write_text('{}')
         self.assertFalse(health(self.store,self.codex)['automatic_collection_confirmed'])
 
+    def test_unrelated_config_changes_do_not_invalidate_hook_evidence(self):
+        config = self.codex/'config.toml'
+        config.write_text('model="a"\n[hooks.state.one]\ntrusted_hash="first"\n')
+        first = fingerprint(self.codex)
+        config.write_text('model="b"\n[hooks.state.one]\ntrusted_hash="first"\n')
+        self.assertEqual(fingerprint(self.codex),first)
+        config.write_text('model="b"\n[hooks.state.one]\ntrusted_hash="second"\n')
+        self.assertNotEqual(fingerprint(self.codex),first)
+
     def test_invalid_hook_input_is_visible_without_blocking(self):
         result = subprocess.run([sys.executable,str(SCRIPT),'--data-dir',str(self.store.directory),'hook'],
                                 input='not json',text=True,capture_output=True,check=True)

@@ -20,10 +20,24 @@ from accounting import atomic_json, now
 
 def fingerprint(codex_home):
     h = hashlib.sha256()
-    paths = [Path(codex_home) / name for name in ('hooks.json','config.toml')] + sorted(Path(__file__).parent.glob('*.py'))
+    paths = [Path(codex_home) / 'hooks.json'] + sorted(Path(__file__).parent.glob('*.py'))
     for path in paths:
         h.update(path.name.encode())
         h.update(path.read_bytes() if path.exists() else b'missing')
+    # Hash only relevant sections: the app routinely rewrites unrelated model,
+    # project and UI settings. This is change detection, not a TOML/trust parser.
+    config = Path(codex_home)/'config.toml'
+    selected = []
+    relevant = False
+    if config.exists():
+        for line in config.read_text(encoding='utf-8-sig').splitlines():
+            stripped = line.strip()
+            if stripped.startswith('['):
+                relevant = (stripped.startswith('[hooks') or stripped.startswith('[[hooks') or
+                            stripped.startswith('[features]'))
+            if relevant or stripped.startswith('allow_managed_hooks_only'):
+                selected.append(line.rstrip())
+    h.update('\n'.join(selected).encode())
     return h.hexdigest()
 
 
