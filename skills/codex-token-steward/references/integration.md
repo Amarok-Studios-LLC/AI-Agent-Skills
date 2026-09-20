@@ -22,9 +22,19 @@ The final response cannot report its own exact token count before it exists. Alw
 
 ## Diagnose
 
-`doctor` reports configured integration and observed hook events separately. Successful manually simulated hook events prove handler behavior, not automatic host execution. Verify a real next turn before claiming automatic reporting works. For initial indexing use `collect --days 30`; subsequent collection is incremental. Unsupported transcript schemas, missing environment IDs, permissions, or host restrictions should produce a clear coverage limitation rather than fabricated zeroes.
+`doctor` separates configured hooks, handler observations, session-specific observations and verified host dispatch. A manually simulated hook event never proves host dispatch. Handler failures record only the error class, without input or exception text. For initial indexing use `collect --days 30`; subsequent collection is incremental.
 
-Windows command hooks use a quoted native executable command. If a particular client uses a different shell contract, inspect its hook error and adjust only the command formatting; test with a synthetic event before trusting. macOS/Linux use shell-quoted executable and script paths. Python must remain at the recorded path; reinstall integration after moving runtimes/skill locations.
+After reviewing/trusting the hooks, run:
+
+`python <skill>/scripts/steward.py verify-host --codex-exe <absolute-Codex-executable>`
+
+This opt-in check launches the real app-server with an ephemeral session and a local canned Responses server. It checks that all three hooks are trusted, then correlates the host's completed UserPromptSubmit/Stop notifications with the collector's session-specific records. It makes no AI inference calls, changes no persistent model settings, and does not approve hooks. Host startup may perform its usual plugin/service initialization. The fixture consumes request bytes locally without retaining them. It never sends context to a model endpoint. No synthetic usage is saved to rollout history. SubagentStop dispatch is not exercised; test its handler separately rather than spawning an unnecessary agent.
+
+The result is stored locally as `host-verification.json`. Changing scripts, hook definitions, or config invalidates the evidence. Verification covers that tested host, not every device or an already-running desktop session. If a desktop task has no hook guidance, use `prepare --current` once with its first substantive tool call; the global instruction fallback enables this automatically. Reload/start a task to load changed configuration; do not restart an active user's task without coordinating it. Missing usage stays unavailable.
+
+Windows hooks use a PowerShell encoded invocation that works when dispatched by either cmd.exe or PowerShell. The encoding protects literal executable/argument paths; it is not encryption and contains no secrets. A quoted executable path alone is not valid PowerShell. No execution-policy bypass is used. Only UserPromptSubmit receives `additionalContextLimit`; Stop events cannot return that context. macOS/Linux use shell-quoted executable and script paths. Python must remain at the recorded path; reinstall integration after moving runtimes/skill locations.
+
+Windows integration also creates `<data-dir>/Token Steward Status.cmd` for direct local checks without model calls. It is not an always-running service and does not query live account billing. You can use `status --refresh` directly on other platforms.
 
 ## Disable/remove
 

@@ -16,6 +16,8 @@ It provides:
 - Per-turn JSON/Markdown reports, individual recorded model calls, tool activity, cached input and reasoning subsets, and explicitly linked subagent usage.
 - Starting/ending task token ledgers and allowance readings, with used/remaining percentages, timestamps, baseline age, and reset-aware changes.
 - Compact per-response snapshots, optional lifecycle reporting, and short feedback for the next message.
+- Cross-shell Windows hook launchers, recorded handler failures, and real host-dispatch verification using a local canned response with no model inference.
+- A `prepare` fallback for hosts that have not reloaded hooks, plus a direct local `status` command/Windows shortcut that needs no AI conversation.
 - Personalization through project/model baselines, project facts, reversible interventions and explicitly accepted outcome comparisons.
 - Guidance for context management, code changes, debugging, tool use, authorized multi-model delegation, deployments, backups and MySQL.
 - A functional local artifact-manifest/delta planner for deployment preparation.
@@ -60,6 +62,9 @@ Direct commands (replace `<skill>` with the installed directory):
 
 ```text
 python <skill>/scripts/steward.py doctor
+python <skill>/scripts/steward.py verify-host --codex-exe <absolute-Codex-executable>
+python <skill>/scripts/steward.py status --refresh
+python <skill>/scripts/steward.py prepare --current
 python <skill>/scripts/steward.py collect --days 30
 python <skill>/scripts/steward.py report --current --refresh --compact
 python <skill>/scripts/steward.py audit --days 7 --refresh
@@ -71,6 +76,14 @@ python <skill>/scripts/steward.py notes --project <project-root>
 `--current` needs Codex's current-session environment variable. Outside Codex, pass `--session <id>`. Global options (`--codex-home`, `--data-dir`) precede the subcommand. `--help` describes every command.
 
 The collector stores derived metadata and reports in `$CODEX_STEWARD_HOME` or `$CODEX_HOME/token-steward`. JSON reports contain detailed per-call analysis; Markdown reports provide readable summaries. Notes and comparisons are documented in [personalization](skills/codex-token-steward/references/personalization.md).
+
+`verify-host` checks actual UserPromptSubmit/Stop dispatch through an ephemeral host session backed by a local canned response, with no model inference. It requires already-trusted hooks and does not edit trust. Its result is tied to installed scripts/configuration and identifies the tested host. It does not certify that every existing desktop task has reloaded hooks, or test subagent dispatch. `prepare` provides the same prior-turn feedback when hook guidance is absent without recording a fake hook run.
+
+## Simple conversation and zero-model-token checks
+
+Use Codex normally for work requiring files, tools or task context. General conversation can be started directly in ChatGPT Chat, subject to its plan limits. The skill cannot make an AI reply token-free or silently reroute a message that Codex is already processing. See [routing boundaries](skills/codex-token-steward/references/routing.md).
+
+For deterministic usage checks without any AI model call, run `status --refresh` directly. On Windows, double-click `Token Steward Status.cmd` in the data directory after integration. Asking Codex to run that same command still consumes tokens for the surrounding model turn. The status view uses local historical records, not live account billing.
 
 ## Report timing and honest limits
 

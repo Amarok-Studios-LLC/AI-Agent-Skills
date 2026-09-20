@@ -1,5 +1,6 @@
 """Opt-in host integration. Never changes hook trust or starts model turns."""
 import json
+import base64
 import os
 import shlex
 import subprocess
@@ -47,7 +48,7 @@ def session_paths(codex_home, session=None):
     return sorted((p for p,sid,_ in headers if sid in selected), key=lambda p:p.name)
 
 
-def hook(store, codex_home, payload):
+def hook(store, codex_home, payload, record=True):
     started = time.monotonic()
     event = payload.get('hook_event_name', '')
     sid = payload.get('session_id')
@@ -73,10 +74,9 @@ def hook(store, codex_home, payload):
         report = turn_report(store, sid, previous[0]) if previous else None
         if report:
             save_report(store, report)
-        instructions = ('Apply $codex-token-steward. Current policy is '+p['mode']+'. '
-                        'Preserve requirements, required checks, user model choices, and authorization. '
-                        'Before repeating expensive work, check what changed and what new evidence it adds. '
-                        'Do not start extra model turns to improve usage reports. ')
+        instructions = ('Token Steward policy: '+p['mode']+'. '
+                        'Preserve requirements, required checks, model choice and authorization. '
+                        'Reuse still-valid evidence; no extra turns for accounting. ')
         if p['mode'] == 'observe':
             instructions += 'Observe/report only; do not apply optimizations under this policy. '
         if report:
@@ -85,6 +85,11 @@ def hook(store, codex_home, payload):
                 instructions += finding['code'] + ': ' + finding['suggested_action'] + ' '
         if scan['deferred']:
             instructions += 'Historical indexing is incomplete; do not interpret missing usage as zero. '
+        if payload.get('cwd'):
+            notes = store.db.execute("SELECT kind,payload FROM notes WHERE project=? AND kind IN ('fact','intervention') ORDER BY timestamp DESC LIMIT 3",
+                                     (store.project(payload['cwd']),)).fetchall()
+            if notes:
+                instructions += 'Project notes exist; consult `notes --project <cwd>` only if relevant. Validate their evidence/valid_when before reuse. '
         instructions += 'Append a compact measured pre-final usage snapshot when requested; final-answer usage is reconciled afterward.'
         output = {'hookSpecificOutput': {'hookEventName':event, 'additionalContext':instructions[:2600]}}
     else:
@@ -92,9 +97,10 @@ def hook(store, codex_home, payload):
         target = save_report(store, report)
         if event == 'Stop' and p['report_every_message']:
             output = {'systemMessage':compact(report) + ' Recorded-through snapshot; report: ' + str(target)}
-    store.db.execute('INSERT INTO hook_runs(event,timestamp,elapsed_ms,ok) VALUES(?,?,?,1)',
-                     (event, now(), (time.monotonic()-started)*1000))
-    store.db.commit()
+    if record:
+        store.db.execute('INSERT INTO hook_runs(event,timestamp,elapsed_ms,ok,session,turn) VALUES(?,?,?,1,?,?)',
+                         (event, now(), (time.monotonic()-started)*1000, sid, payload.get('turn_id')))
+        store.db.commit()
     # Never decision:block, continue:false, permission decisions, or another model call.
     return output
 
@@ -106,6 +112,25 @@ def command_for(script, arguments, windows=None):
         # Codex Windows command hooks use a command string. Quote native executable/path arguments.
         return subprocess.list2cmdline(values)
     return shlex.join(values)
+
+
+def powershell_invocation(script, arguments):
+    values = [sys.executable, str(Path(script).resolve())] + list(arguments)
+    return '& ' + ' '.join("'" + v.replace("'", "''") + "'" for v in values)
+
+
+def hook_command_for(script, arguments, windows=None):
+    """A Windows host may dispatch through cmd.exe or PowerShell. Support both.
+
+    Encode only the invocation, never credentials or input. Quoted native argv alone
+    is not executable PowerShell; shell metacharacters in paths must stay literal.
+    """
+    windows = os.name == 'nt' if windows is None else windows
+    if not windows:
+        return command_for(script, arguments, windows=False)
+    invocation = powershell_invocation(script, arguments) + '; exit $LASTEXITCODE'
+    encoded = base64.b64encode(invocation.encode('utf-16-le')).decode('ascii')
+    return 'powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ' + encoded
 
 
 def install_integration(codex_home, script, store, remove=False):
@@ -132,8 +157,10 @@ def install_integration(codex_home, script, store, remove=False):
     if not remove:
         for event in ('UserPromptSubmit','Stop','SubagentStop'):
             args = ['--codex-home', str(codex_home), '--data-dir', str(store.directory), 'hook']
-            handler = {'type':'command', 'command':command_for(script,args), 'timeout':20,
-                       'statusMessage':MARKER, 'additionalContextLimit':750}
+            handler = {'type':'command', 'command':hook_command_for(script,args), 'timeout':20,
+                       'statusMessage':MARKER}
+            if event == 'UserPromptSubmit':
+                handler['additionalContextLimit'] = 750
             events.setdefault(event, []).append({'hooks':[handler]})
     atomic_json(hooks_path, hooks)
     old = agents_path.read_text(encoding='utf-8-sig') if agents_path.exists() else ''
@@ -141,10 +168,9 @@ def install_integration(codex_home, script, store, remove=False):
         a,b = old.index(BEGIN), old.index(END)+len(END)
         old = old[:a] + old[b:]
     if not remove:
-        cmd = command_for(script, ['--codex-home',str(codex_home),'--data-dir',str(store.directory),
-                                  'report','--current','--refresh','--compact','--respect-policy'])
-        if os.name == 'nt':
-            cmd = '& ' + cmd  # PowerShell needs a call operator for a quoted executable path.
+        args = ['--codex-home',str(codex_home),'--data-dir',str(store.directory),
+                'report','--current','--refresh','--compact','--respect-policy']
+        cmd = powershell_invocation(script,args) if os.name == 'nt' else command_for(script,args)
         block = ('\n' + BEGIN + '\n'
                  'Use the globally installed codex-token-steward skill for usage reporting and efficient execution. '
                  'Preserve the user\'s selected model, required outcome, and necessary verification. '
@@ -156,9 +182,20 @@ def install_integration(codex_home, script, store, remove=False):
                  + ('Windows PowerShell command:\n' if os.name == 'nt' else '') + cmd + '\n\n'
                  'Review observed findings and improve execution within existing authorization. '
                  'Do not reduce quality, skip necessary checks, switch models, spawn agents, or alter configuration '
-                 'merely to save tokens. Do not start extra turns solely for reporting.\n' + END + '\n')
+                 'merely to save tokens. Do not start extra turns solely for reporting. '
+                 'For substantive work, if no Token Steward hook guidance arrived this turn, run the same script with '
+                 '`prepare --current` instead of the report arguments, once alongside the first necessary tool call. '
+                 'This supplies prior findings without relying on hook support. Simple conversation needs no preparation '
+                 'or repository exploration. Do not claim zero-token AI replies or silently route messages to another product.\n' + END + '\n')
         old = old.rstrip() + '\n' + block
     agents_path.write_text(old, encoding='utf-8')
+    launcher = None
+    if not remove and os.name == 'nt':
+        launcher = store.directory / 'Token Steward Status.cmd'
+        launcher.write_text('@echo off\n' + hook_command_for(script,
+            ['--codex-home',str(codex_home),'--data-dir',str(store.directory),'status','--refresh'])
+            + '\npause\n',encoding='ascii')
     return {'installed':not remove, 'hooks_file':str(hooks_path), 'global_instructions':str(agents_path),
+            'local_status_launcher':str(launcher) if launcher else None,
             'hook_trust':'Not modified. Review and trust definitions using the host hook controls (/hooks in CLI).',
             'activation':'Start a new task/reload configuration. Global instructions provide a fallback where hooks do not run.'}

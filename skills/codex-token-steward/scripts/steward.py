@@ -11,9 +11,10 @@ from urllib.parse import urlparse
 from accounting import Store, atomic_json, home, now, safe_id
 from deployment import manifest, plan
 from integration import hook, install_integration, session_paths
+from hostcheck import health, verify
 from reports import DEFAULT_POLICY, audit, compact, policy, registry, save_report, turn_report
 
-VERSION = '1.0.1'
+VERSION = '1.1.0'
 
 
 def emit(value):
@@ -102,6 +103,15 @@ def parser():
     q.add_argument('--after',required=True,type=Path)
     q.add_argument('--remote-verified',action='store_true')
     sub.add_parser('doctor',help='Report installed capabilities and actual hook observations')
+    q = sub.add_parser('verify-host',help='Verify trusted hooks with a local canned response; no model inference')
+    q.add_argument('--codex-exe',required=True,type=Path)
+    q = sub.add_parser('prepare',help='Bounded previous-turn feedback fallback when hook guidance is absent')
+    q.add_argument('--current',action='store_true')
+    q.add_argument('--session')
+    q.add_argument('--project',default=os.getcwd())
+    q = sub.add_parser('status',help='Local usage/health dashboard; running this directly uses no model tokens')
+    q.add_argument('--days',type=int,default=7)
+    q.add_argument('--refresh',action='store_true')
     sub.add_parser('hook',help='Handle a Codex hook event on stdin; never invokes a model')
     sub.add_parser('install-integration',help='Merge optional global hooks and reporting instructions')
     sub.add_parser('remove-integration',help='Remove only steward integration; retain analytics')
@@ -254,16 +264,32 @@ def main(argv=None):
             emit(plan(read_json(args.before),read_json(args.after),args.remote_verified))
         elif cmd == 'hook':
             emit(hook(store,args.codex_home,json.load(sys.stdin)))
+        elif cmd == 'prepare':
+            session = args.session or (os.environ.get('CODEX_THREAD_ID') or os.environ.get('CODEX_SESSION_ID') if args.current else None)
+            if not session:
+                raise ValueError('Provide --session or --current with a session environment variable')
+            result = hook(store,args.codex_home,{'hook_event_name':'UserPromptSubmit',
+                          'session_id':session,'cwd':args.project},record=False)
+            print(result['hookSpecificOutput']['additionalContext'])
+        elif cmd == 'verify-host':
+            result = verify(store,args.codex_home,args.codex_exe)
+            emit(result)
+            return 0 if result['passed'] else 1
+        elif cmd == 'status':
+            if args.refresh:
+                store.scan(store.discover(args.codex_home,args.days))
+            summary = audit(store,args.days)
+            emit({'generated_at':now(),'period_days':args.days,
+                  'usage':summary['usage'],'allowance_windows':summary['allowance_windows'],
+                  'top_models':summary['groups']['model'][:5],
+                  'health':health(store,args.codex_home), 'coverage':summary['coverage'],
+                  'note':'Local historical usage, not live billing. This direct command makes no model calls.'})
         elif cmd in ('install-integration','remove-integration'):
             emit(install_integration(args.codex_home,Path(__file__),store,cmd=='remove-integration'))
         elif cmd == 'doctor':
-            counts = {r['event']:r['n'] for r in store.db.execute('SELECT event,COUNT(*) n FROM hook_runs WHERE ok=1 GROUP BY event')}
-            hooks_file = args.codex_home/'hooks.json'
             emit({'version':VERSION,'python':sys.version.split()[0],'data_directory':str(store.directory),
-                  'hooks_config_exists':hooks_file.exists(),'successful_hook_events':counts,
+                  **health(store,args.codex_home,os.environ.get('CODEX_THREAD_ID') or os.environ.get('CODEX_SESSION_ID')),
                   'hook_trust':'User/host controlled; configured does not mean trusted or observed working.',
-                  'automatic_collection_confirmed':False,
-                  'automation_verification':'Handler runs alone do not prove host execution; verify a real subsequent turn.',
                   'hard_spend_enforcement':False,'automatic_model_switching':False,
                   'network_requests_by_collector':False,'model_requests_by_collector':False,
                   'live_account_limits':'Optional host usage tool; rollout readings are historical.',
@@ -272,6 +298,10 @@ def main(argv=None):
         return 0
     except (ValueError,OSError,KeyError,TypeError,sqlite3.Error) as exc:
         if args.command == 'hook':
+            store.db.rollback()
+            store.db.execute('INSERT INTO hook_runs(event,timestamp,ok,error) VALUES(?,?,0,?)',
+                             ('unknown',now(),type(exc).__name__))
+            store.db.commit()
             # Advisory integration must not interrupt the user's work or create continuation loops.
             emit({'systemMessage':'Token Steward could not collect usage ('+type(exc).__name__+'); coverage unavailable. Run doctor manually.'})
             return 0

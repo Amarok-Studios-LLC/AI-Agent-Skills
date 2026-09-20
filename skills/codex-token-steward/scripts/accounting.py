@@ -84,6 +84,13 @@ class Store:
         CREATE TABLE IF NOT EXISTS hook_runs(id INTEGER PRIMARY KEY,event TEXT,
           timestamp TEXT,elapsed_ms REAL,ok INTEGER);
         ''')
+        # Additive migration: old handler counts remain valid, but cannot be
+        # correlated with a particular host session until new observations arrive.
+        self.db.execute('BEGIN IMMEDIATE')
+        columns = {r[1] for r in self.db.execute('PRAGMA table_info(hook_runs)')}
+        for column in ('session', 'turn', 'error'):
+            if column not in columns:
+                self.db.execute('ALTER TABLE hook_runs ADD COLUMN ' + column + ' TEXT')
         self.db.execute("INSERT OR IGNORE INTO kv VALUES('salt',?)", (secrets.token_hex(32),))
         self.db.execute("INSERT OR IGNORE INTO kv VALUES('schema','1')")
         self.db.commit()
