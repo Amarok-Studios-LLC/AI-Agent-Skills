@@ -5,6 +5,40 @@ Practical, inspectable agent skills from Amarok Studios LLC. Each skill lives in
 | Skill | Purpose |
 |---|---|
 | [Codex Token Steward](skills/codex-token-steward/SKILL.md) | Measure usage per message/model call, investigate expensive workflows, and improve efficiency while preserving outcomes. |
+| [Software Engineering Toolkit](skills/software-engineering-toolkit/SKILL.md) | Define, build, deploy, and maintain software with portable context, versioned documents, and continuous project-specific review. |
+
+## Software Engineering Toolkit
+
+For new and existing SaaS, games, enterprise applications, integrations, mobile apps, and other software projects. Start with a focused definition interview, gather enough confirmed information to begin, and evolve the project and its records together. The intended audience commonly uses one server/shared hosting and free tools; the skill confirms actual capabilities when needed rather than imposing an infrastructure setup checklist.
+
+It provides:
+
+- Required every-project-turn restoration, applicability/consistency review, relevant action, and persisted handoff state.
+- Project-owned structured context and a companion functional knowledge model, with sourced decisions, timestamps and concise rationale that survive changing developers/models.
+- Project-specific legal/commercial, product, technical, design, schema, planning, glossary, conditional game-design, incident-response, support and business-logic records. Unresolved facts stay unresolved; no invented cookie or business practices.
+- Immutable UTF-8 document snapshots, expected-hash updates, append-only decision records, explicit supersession, and local writer exclusion through a dependency-free Python helper.
+- Read-only detection of changed/missing records, merge markers and conflicts between explicit decision claims. Semantic reconciliation across all project documents remains the agent's responsibility.
+- Practical implementation, debugging, testing, accessibility, deployment/recovery, existing-project adoption, operational visibility and integration reliability.
+- Conditional performance and SEO candidates, applicable security policies, functioning support software plus support procedures, and support-to-improvement workflows.
+- Developer decisions before major refactoring, architecture changes or new third-party integrations.
+
+Install this skill independently:
+
+```sh
+python install.py --skill software-engineering-toolkit
+```
+
+For the requested behavior across future project chats, also enable global instructions:
+
+```sh
+python install.py --skill software-engineering-toolkit --integrate
+```
+
+This explicitly merges a marked block into user-level `CODEX_HOME/AGENTS.md`, preserves other instructions and saves originals. It does not change hooks, trust, permissions or model settings. Start a new chat/reload instructions after installation. See [installation and removal](skills/software-engineering-toolkit/references/installation.md) and [portable records/helper commands](skills/software-engineering-toolkit/references/project-records.md). Use `--upgrade` to replace an identified differing installation after reviewing local customizations.
+
+The skill defines an agent workflow, not a background service or hard enforcement engine. The helper does not implement a product, deploy it, perform semantic/legal review, scan security, or run a support service on its own. A cooperating agent uses available authorized tools. Portable records are readable without the helper; Python 3.9+ is needed only for its executable features.
+
+The repository installer discovers self-contained skill folders. Its default remains `codex-token-steward` for compatibility; select Software Engineering Toolkit explicitly. Each skill's optional integration is separate.
 
 ## Codex Token Steward
 

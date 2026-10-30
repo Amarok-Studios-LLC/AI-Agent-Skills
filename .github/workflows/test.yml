@@ -5,7 +5,7 @@ on:
 permissions:
   contents: read
 jobs:
-  token-steward:
+  skills:
     strategy:
       fail-fast: false
       matrix:

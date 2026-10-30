@@ -10,3 +10,4 @@ reports/
 work/
 outputs/
 .DS_Store
+.test-tmp/

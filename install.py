@@ -11,12 +11,14 @@ import sys
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--skill',choices=['codex-token-steward'],default='codex-token-steward')
+    skills_root=Path(__file__).resolve().parent/'skills'
+    available=sorted(d.name for d in skills_root.iterdir() if d.is_dir() and not d.is_symlink() and (d/'SKILL.md').is_file())
+    p.add_argument('--skill',choices=available,default='codex-token-steward')
     p.add_argument('--codex-home',type=Path,default=Path(os.environ.get('CODEX_HOME',Path.home()/'.codex')))
-    p.add_argument('--integrate',action='store_true',help='Merge global per-message hooks/instructions; host trust still required')
+    p.add_argument('--integrate',action='store_true',help='Explicitly enable the selected skill global instructions/integration')
     p.add_argument('--upgrade',action='store_true',help='Replace a previously installed copy of this skill')
     a=p.parse_args()
-    source=Path(__file__).resolve().parent/'skills'/a.skill
+    source=skills_root/a.skill
     destination=a.codex_home.expanduser().resolve()/'skills'/a.skill
     if destination.is_symlink():
         p.error('Refusing to overwrite a symlink; inspect the installation manually')
@@ -38,7 +40,10 @@ def main():
         shutil.copy2(f,out)
     print('Installed: '+str(destination))
     if a.integrate:
-        subprocess.run([sys.executable,str(destination/'scripts/steward.py'),'--codex-home',str(a.codex_home.resolve()),'install-integration'],check=True)
+        entrypoints={'codex-token-steward':'steward.py','software-engineering-toolkit':'toolkit.py'}
+        if a.skill not in entrypoints:
+            p.error('This skill has no global integration; plain installation is available')
+        subprocess.run([sys.executable,str(destination/'scripts'/entrypoints[a.skill]),'--codex-home',str(a.codex_home.resolve()),'install-integration'],check=True)
     print('Available on the next turn. Start a new task to load changed global instructions/configuration.')
     return 0
 

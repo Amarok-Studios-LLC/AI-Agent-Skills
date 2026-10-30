@@ -2,6 +2,15 @@
 
 Keep each skill self-contained under `skills/<name>`. Keep entry instructions concise and route to references only when needed. Document executable behavior separately from guidance and unsupported future capabilities.
 
+For Software Engineering Toolkit:
+
+- Preserve focused onboarding, clarification of ambiguous facts, and every-project-turn evaluation without turning startup into a universal infrastructure audit.
+- Keep project records portable and project-specific. Never replace unanswered questions with invented legal, business, hosting or implementation facts.
+- Preserve every older document revision and decision. Test stale writes, external edits, history integrity, explicit supersession and competing decision claims with synthetic temporary projects.
+- Keep global integration opt-in, idempotent, removable, and limited to its own marked instructions. Preserve other skills, hooks, settings, trust and user instructions.
+- Keep helpers Python 3.9+ standard-library only and their actual capabilities distinct from agent-guided workflows. Do not claim hash comparison performs semantic review.
+- Do not commit real project records, customer information, credentials, analytics or local installation paths. Use synthetic fixtures for installation and portability checks.
+
 For Token Steward:
 
 - Use Python 3.9+ standard library only unless a concrete need justifies a dependency.
